@@ -1,7 +1,7 @@
 package = "luarunner"
 version = "1.0-1"
 source = {
-   url = "https://github.com/little512/luarunner",
+   url = "git://github.com/little512/luarunner",
    tag = "v1.0-1"
 }
 description = {
@@ -11,7 +11,7 @@ description = {
       by $EDITOR), edit a simple lua script, and exit
       to run the script, simple as that.
    ]];
-   homepage = "N/A",
+   homepage = "https://github.com/little512/luarunner",
    license = "MIT/X11"
 }
 dependencies = {
