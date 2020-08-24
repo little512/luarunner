@@ -1,0 +1,174 @@
+#!/usr/bin/env lua
+
+local VERSION = "v1.0-1"
+
+local config = {
+	editor = "/usr/bin/nano",
+	lua = "/usr/bin/env lua",
+	dir = "/tmp/",
+	file = ".luarunner.lua"
+}
+
+local argparse = require("argparse")
+
+local parser = argparse()
+	:require_command	(false)
+	:name 				"luarunner"
+	:description [[run luarunner to open your editor (as defined by $EDITOR),
+edit a simple lua script, and exit to run the script, simple as that.]]
+
+parser:flag("--version", "gives version info"):action(function()
+   print("luarunner " .. VERSION)
+   os.exit(0)
+end)
+
+parser:option("-l --lua-version", "sets the lua version to run")
+	:target "lua_version"
+	:argname "<version>"
+
+parser:option("-e --editor", "set the editor you'd rather use instead of $EDITOR")
+
+parser:flag("-N --no-editor", "do not open $EDITOR before running the cached lua file")
+	:target "noEditor"
+
+parser:flag("-n --new", "erase script stored at " .. config.dir .. config.file)
+
+parser:flag("-L --no-lua", "do not invoke lua")
+	:target "noLua"
+
+parser:option("-f --file", "sets the file to look for to run (default: " .. config.file .. ")")
+
+parser:option("-d --directory", "sets the directory to look for " .. config.file .. " (default: " .. config.dir .. ")")
+	:target "dir"
+	:argname "<dir>"
+
+parser:option("-h --here", "same as -d. -f<file>, edits a file in the current directory", ".lua")
+	:argname "<file>"
+	:defmode "arg"
+
+parser:flag("-c --clone", "clone the cached file to current directory (supports -d and -f, ignores -n and --no-editor)")
+
+parser:option("-C --config", "load a different config file")
+
+parser:flag("-v --verbose", "sets verbosity level")
+	:count "0-2"
+	:target "verbosity"
+
+local args = parser:parse()
+
+local function _print(verbosity, ...)
+	if args.verbosity >= verbosity then
+		io.write((string.rep("[", verbosity + 1) .. "LuaRunner" .. string.rep("]", verbosity + 1)) .. ": ")
+		print(...)
+	end
+end
+
+if args.config then
+	local handle = assert(io.open(args.config, "r"))
+	if handle then
+		local script = handle:read("*a")
+		handle:close()
+
+		local newConfig = load(script)()
+		local configCopy = config
+		config = newConfig
+		
+		if args.verbosity >= 2 then
+			for i,v in pairs(config) do
+				_print(2, "[CONFIG] loaded configuration \"" .. i .. "\" as \"" .. v .. "\"")
+			end
+		end
+
+		for i,v in pairs(configCopy) do
+			if not config[i] then
+				_print(1, "WARNING: missing config field \"" .. i .. "\", falling back to default")
+				config[i] = v
+			end
+		end
+		_print(1, "[CONFIG] loaded custom config file " .. args.config)
+	else
+		_print(0, "WARNING: could not open config file \"" .. args.config .. "\"")
+	end
+end
+
+local function _pad(s, c)
+	return ((s:sub(#s, #s) == c) and s or (s .. c))
+end
+
+config.file = args.file or config.file
+_print(2, "set default file to " .. config.file)
+config.dir = args.dir and _pad(args.dir, "/") or _pad(config.dir, "/")
+_print(2, "set default dir to " .. config.dir)
+
+if args.here then
+	config.dir = "./"
+	config.file = args.here
+	_print(2, "set the current dir to here (" .. config.dir .. config.file .. ")")
+end
+
+if args.clone then
+	_print(1, "cloning...")
+	local f = config.dir .. config.file
+	os.execute("touch " .. config.file .. " && cp " .. f .. " ./")
+	print("cloned " .. f .. " to current directory")
+	os.exit(0)
+end
+
+if args.new then
+	_print(1, "clearing " .. config.dir .. config.file)
+	os.execute("echo >" .. config.dir .. config.file)
+end
+
+if args.lua_version then
+	config.lua = config.lua .. args.lua_version
+
+	local _v = (" -v" .. (args.verbosity < 2 and " 2>/dev/null" or ""))
+
+	local success = os.execute(config.lua .. _v)
+
+	_print(2, "success: " .. tostring(success))
+
+	if success then
+		_print(1, "specified lua verion " .. args.lua_version .. " found at " .. config.lua)
+	else
+		print("specified lua version " .. args.lua_version .. " not found (evaluated as " .. config.lua .. ")")
+		os.exit(1)
+	end
+end
+
+if not args.noEditor then
+	_print(2, "getting editor...")
+
+	local editorString
+
+	if args.editor then
+		editorString = args.editor
+		_print(2, "[OVERRIDE] setting editor to " .. editorString)
+	else	
+		local editorStringHandle = io.popen("echo $EDITOR")
+		editorString = editorStringHandle:read("*a"):gsub("\n", "")
+		editorStringHandle:close()
+		_print(2, "got editor " .. editorString)
+	end
+
+	editorString = (editorString ~= "" and editorString or (function() _print(1, "defaulting to nano") return config.editor end)())
+
+	_print(1, "invoking " .. editorString .. " " .. config.dir .. config.file .. "...")
+
+	local editorRan = os.execute(editorString .. " " .. config.dir .. config.file)
+else
+	_print(1, "skipping opening the editor")
+end
+
+if not args.noLua then
+	_print(2, "invoking " .. config.lua .. " " .. config.dir .. config.file)
+	local executedLuaOutput = io.popen(config.lua .. " " .. config.dir .. config.file)
+	print("\n[LuaRunner]: LUA OUTPUT (" .. config.lua .. "):")
+	local executedLuaString = executedLuaOutput:read("*a")
+	_print(2, "read output:")
+	print(executedLuaString)
+else
+	_print(1, "skipping invoking lua")
+end
+
+_print(2, "done")
