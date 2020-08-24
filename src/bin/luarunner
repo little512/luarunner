@@ -122,7 +122,7 @@ end
 if args.lua_version then
 	config.lua = config.lua .. args.lua_version
 
-	local _v = (" -v" .. (args.verbosity < 2 and " 2>/dev/null" or ""))
+	local _v = (" -v" .. (args.verbosity < 2 and " >/dev/null" or ""))
 
 	local success = os.execute(config.lua .. _v)
 
