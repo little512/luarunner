@@ -1,7 +1,7 @@
 package = "luarunner"
 version = "1.0-2"
 source = {
-   url = "git://github.com/little512/luarunner",
+   url = "git://github.com/little512/luarunner.git",
    tag = "v1.0-2"
 }
 description = {
