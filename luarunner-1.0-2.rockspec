@@ -1,8 +1,8 @@
 package = "luarunner"
-version = "1.0-1"
+version = "1.0-2"
 source = {
    url = "git://github.com/little512/luarunner",
-   tag = "v1.0-1"
+   tag = "v1.0-2"
 }
 description = {
    summary = "a simple script for running snippits of lua code";
